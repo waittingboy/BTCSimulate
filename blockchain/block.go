@@ -1,11 +1,6 @@
 package blockchain
 
-import (
-	"BTC_Simulate/utils"
-	"bytes"
-	"crypto/sha256"
-	"time"
-)
+import "time"
 
 // 定义区块结构
 type Block struct {
@@ -17,25 +12,6 @@ type Block struct {
 	Nonce      uint64 // 随机数
 	CurHash    []byte // 当前区块Hash
 	Data       []byte // 区块数据
-}
-
-// 生成当前区块Hash(sha256)
-func (block *Block) setHash() {
-	// 拼接区块数据
-	temp := [][]byte{
-		utils.Uint64ToByte(block.Version),
-		block.PrevHash,
-		block.MerkelRoot,
-		utils.Uint64ToByte(block.TimeStamp),
-		utils.Uint64ToByte(block.Difficulty),
-		block.Data,
-	}
-
-	blockInfo := bytes.Join(temp, []byte{})
-
-	// 生成区块Hash
-	hash := sha256.Sum256(blockInfo)
-	block.CurHash = hash[:]
 }
 
 // 创建区块
@@ -51,7 +27,13 @@ func NewBlock(data string, prevHash []byte) *Block {
 		Data:       []byte(data),
 	}
 
-	block.setHash()
+	// 创建工作量证明
+	pow := NewProofOfWork(&block)
+	// 寻找随机数
+	nonce, curHash := pow.Run()
+	// 更新block数据
+	block.Nonce = nonce
+	block.CurHash = curHash
 
 	return &block
 }
