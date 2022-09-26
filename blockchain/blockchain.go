@@ -6,7 +6,7 @@ import (
 )
 
 // 定义区块链结构
-type BlockChain struct {
+type Blockchain struct {
 	db *bolt.DB
 }
 
@@ -20,11 +20,11 @@ func GenesisBlock() *Block {
 }
 
 // 创建区块链
-func NewBlockChain() *BlockChain {
+func NewBlockchain() *Blockchain {
 	// 打开数据库
 	db, err := bolt.Open(BlockchainDB, 0600, nil)
 	if err != nil {
-		log.Panic("NewBlockChain：打开数据库失败！")
+		log.Panic("NewBlockchain：打开数据库失败！")
 	}
 	defer db.Close()
 
@@ -34,7 +34,7 @@ func NewBlockChain() *BlockChain {
 		if bucket == nil {
 			bucket, err = tx.CreateBucket([]byte(BlockBucket))
 			if err != nil {
-				log.Panic("NewBlockChain：Bucket创建失败！")
+				log.Panic("NewBlockchain：Bucket创建失败！")
 			}
 
 			genesisBlock := GenesisBlock()
@@ -47,14 +47,14 @@ func NewBlockChain() *BlockChain {
 	})
 
 	if err != nil {
-		log.Panic("NewBlockChain：写入数据库失败！")
+		log.Panic("NewBlockchain：写入数据库失败！")
 	}
 
-	return &BlockChain{db}
+	return &Blockchain{db}
 }
 
 // 添加区块
-func (blockChain *BlockChain) AddBlock(data string) {
+func (blockchain *Blockchain) AddBlock(data string) {
 	// 打开数据库
 	db, err := bolt.Open(BlockchainDB, 0600, nil)
 	if err != nil {
