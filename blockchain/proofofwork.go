@@ -57,6 +57,7 @@ func (pow *ProofOfWork) Run() (uint64, []byte) {
 	var nonce uint64
 	var hash [32]byte
 
+	fmt.Printf("开始挖矿...\n")
 	for {
 		// 获取区块信息
 		blockInfo := GetBlockInfo(pow.block, nonce)

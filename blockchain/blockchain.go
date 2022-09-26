@@ -1,9 +1,18 @@
 package blockchain
 
+import (
+	"github.com/boltdb/bolt"
+	"log"
+)
+
 // 定义区块链结构
 type BlockChain struct {
-	Blocks []*Block // 区块数组
+	db *bolt.DB
 }
+
+const blockchainDB = "blockchain.db"
+const blockBucket = "blockBucket"
+const lastHashKey = "lastHashKey"
 
 // 创建创世块
 func GenesisBlock() *Block {
@@ -12,24 +21,64 @@ func GenesisBlock() *Block {
 
 // 创建区块链
 func NewBlockChain() *BlockChain {
-	genesisBlock := GenesisBlock()
+	// 打开数据库
+	db, err := bolt.Open(blockchainDB, 0600, nil)
+	if err != nil {
+		log.Panic("NewBlockChain：打开数据库失败！")
+	}
+	defer db.Close()
 
-	blockChain := BlockChain{
-		Blocks: []*Block{genesisBlock}, // 添加创世块
+	// 写入数据库
+	err = db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(blockBucket))
+		if bucket == nil {
+			bucket, err = tx.CreateBucket([]byte(blockBucket))
+			if err != nil {
+				log.Panic("NewBlockChain：Bucket创建失败！")
+			}
+
+			genesisBlock := GenesisBlock()
+
+			bucket.Put(genesisBlock.CurHash, genesisBlock.Serialize())
+			bucket.Put([]byte(lastHashKey), genesisBlock.CurHash)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		log.Panic("NewBlockChain：写入数据库失败！")
 	}
 
-	return &blockChain
+	return &BlockChain{db}
 }
 
 // 添加区块
 func (blockChain *BlockChain) AddBlock(data string) {
-	// 获取前区块Hash
-	lastBlock := blockChain.Blocks[len(blockChain.Blocks)-1]
-	prevHash := lastBlock.CurHash
+	// 打开数据库
+	db, err := bolt.Open(blockchainDB, 0600, nil)
+	if err != nil {
+		log.Panic("AddBlock：打开数据库失败！")
+	}
+	defer db.Close()
 
-	// 创建新区块
-	block := NewBlock(data, prevHash)
+	// 写入数据库
+	err = db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(blockBucket))
+		if bucket == nil {
+			log.Panic("AddBlock：请先创建区块链！")
+		}
 
-	// 添加到区块数组中
-	blockChain.Blocks = append(blockChain.Blocks, block)
+		lastHash := bucket.Get([]byte(lastHashKey))
+		block := NewBlock(data, lastHash)
+
+		bucket.Put(block.CurHash, block.Serialize())
+		bucket.Put([]byte(lastHashKey), block.CurHash)
+
+		return nil
+	})
+
+	if err != nil {
+		log.Panic("AddBlock：写入数据库失败！")
+	}
 }

@@ -1,6 +1,11 @@
 package blockchain
 
-import "time"
+import (
+	"bytes"
+	"encoding/gob"
+	"log"
+	"time"
+)
 
 // 定义区块结构
 type Block struct {
@@ -36,4 +41,34 @@ func NewBlock(data string, prevHash []byte) *Block {
 	block.CurHash = curHash
 
 	return &block
+}
+
+// 区块序列化
+func (block *Block) Serialize() []byte {
+	var buffer bytes.Buffer
+
+	// 定义编码器
+	encode := gob.NewEncoder(&buffer)
+	// 使用编码器进行编码
+	err := encode.Encode(&block)
+	if err != nil {
+		log.Panic("区块编码失败！")
+	}
+
+	return buffer.Bytes()
+}
+
+// 区块反序列化
+func Deserialize(data []byte) *Block {
+	var block *Block
+
+	// 定义解码器
+	decode := gob.NewDecoder(bytes.NewReader(data))
+	// 使用解码器进行解码
+	err := decode.Decode(&block)
+	if err != nil {
+		log.Panic("区块解码失败！")
+	}
+
+	return block
 }
