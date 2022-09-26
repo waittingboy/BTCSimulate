@@ -7,17 +7,13 @@ import (
 	"log"
 )
 
-const blockchainDB = "blockchain.db"
-const blockBucket = "blockBucket"
-const lastHashKey = "lastHashKey"
-
 func main() {
 	blockChain := blockchain.NewBlockChain()
 	blockChain.AddBlock("我向xx转了50个BTC")
 	blockChain.AddBlock("xx向我转了50个BTC")
 
 	// 打开数据库
-	db, err := bolt.Open(blockchainDB, 0600, nil)
+	db, err := bolt.Open(blockchain.BlockchainDB, 0600, nil)
 	if err != nil {
 		log.Panic("打开数据库失败！")
 	}
@@ -25,12 +21,12 @@ func main() {
 
 	// 查询数据库
 	err = db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(blockBucket))
+		bucket := tx.Bucket([]byte(blockchain.BlockBucket))
 		if bucket == nil {
 			log.Panic("请先创建区块链！")
 		}
 
-		lastHash := bucket.Get([]byte(lastHashKey))
+		lastHash := bucket.Get([]byte(blockchain.LastHashKey))
 		if len(lastHash) != 0 {
 			count := 0
 
