@@ -1,2 +1,7 @@
 #IDE files
 .idea
+
+# production
+blockchain.db
+blockchain.db.lock
+BTC_Simulate.exe

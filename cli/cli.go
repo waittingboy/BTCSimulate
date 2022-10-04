@@ -4,6 +4,7 @@ import (
 	"BTC_Simulate/blockchain"
 	"fmt"
 	"os"
+	"strconv"
 )
 
 type CLI struct {
@@ -11,8 +12,9 @@ type CLI struct {
 }
 
 const Usage = `
-	addBlock --data DATA    "add block to blockchain"
-	printBlockchain         "print all blockchain data"
+	printBlockchain                       "print all blockchain data"
+	getBalance --address USER             "get user balance"
+	transfer FROM TO AMOUNT MINER DATA    "transfer"
 `
 
 func NewCLI(blockchain *blockchain.Blockchain) *CLI {
@@ -23,7 +25,6 @@ func (cli *CLI) Run() {
 	// 得到所有的命令
 	args := os.Args
 	if len(args) < 2 {
-		fmt.Printf("错误的命令或参数，请重新输入！")
 		fmt.Printf(Usage)
 		return
 	}
@@ -31,27 +32,42 @@ func (cli *CLI) Run() {
 	// 分析命令
 	arg := args[1]
 	switch arg {
-	case "addBlock":
-		if len(args) == 4 && args[2] == "--data" {
-			data := args[3]
-			cli.AddBlock(data)
-		} else {
-			fmt.Printf("addBlock参数错误，请重新输入！")
-			fmt.Printf(Usage)
-		}
-		break
-
 	case "printBlockchain":
 		if len(args) == 2 {
 			cli.PrintBlockchain()
 		} else {
-			fmt.Printf("printBlockchain参数错误，请重新输入！")
+			fmt.Printf("printBlockchain参数错误，请重新输入！\n")
 			fmt.Printf(Usage)
 		}
- 		break
+		break
+
+	case "getBalance":
+		if len(args) == 4 && args[2] == "--address" {
+			user := args[3]
+			cli.getBalance(user)
+		} else {
+			fmt.Printf("addBlock参数错误，请重新输入！\n")
+			fmt.Printf(Usage)
+		}
+		break
+
+	case "transfer":
+		fmt.Printf("转账开始...\n")
+		if len(args) == 7 {
+			form := args[2]
+			to := args[3]
+			amount, _ := strconv.ParseFloat(args[4], 64)
+			miner := args[5]
+			data := args[6]
+			cli.transfer(form, to, amount, miner, data)
+		} else {
+			fmt.Printf("transfer参数错误，请重新输入！\n")
+			fmt.Printf(Usage)
+		}
+		break
 
 	default:
-		fmt.Printf("错误的命令或参数，请重新输入！")
+		fmt.Printf("命令错误，请重新输入！\n")
 		fmt.Printf(Usage)
 		break
 	}

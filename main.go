@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	newBlockchain := blockchain.NewBlockchain()
+	newBlockchain := blockchain.NewBlockchain("Satoshi Nakamoto")
 	newCli := cli.NewCLI(newBlockchain)
 	newCli.Run()
 }

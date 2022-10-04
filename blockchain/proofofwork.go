@@ -10,8 +10,8 @@ import (
 
 // 定义工作量证明结构
 type ProofOfWork struct {
-	block  *Block   // 区块
-	target *big.Int // 目标值
+	blockHead *BlockHead // 区块头
+	target    *big.Int   // 目标值
 }
 
 // 生成目标值
@@ -25,26 +25,25 @@ func (pow *ProofOfWork) SetTarget() {
 }
 
 // 创建工作量证明
-func NewProofOfWork(block *Block) *ProofOfWork {
+func NewProofOfWork(blockHead *BlockHead) *ProofOfWork {
 	pow := ProofOfWork{
-		block: block,
+		blockHead: blockHead,
 	}
 	pow.SetTarget()
 
 	return &pow
 }
 
-// 获取区块信息
-func GetBlockInfo(block *Block, nonce uint64) []byte {
-	// 拼接区块数据
+// 获取区块头信息
+func GetBlockHeadInfo(blockHead *BlockHead, nonce uint64) []byte {
+	// 拼接区块头数据
 	temp := [][]byte{
-		utils.Uint64ToByte(block.Version),
-		block.PrevHash,
-		block.MerkelRoot,
-		utils.Uint64ToByte(block.TimeStamp),
-		utils.Uint64ToByte(block.Difficulty),
+		utils.Uint64ToByte(blockHead.Version),
+		blockHead.PrevHash,
+		blockHead.MerkelRoot,
+		utils.Uint64ToByte(blockHead.TimeStamp),
+		utils.Uint64ToByte(blockHead.Difficulty),
 		utils.Uint64ToByte(nonce),
-		block.Data,
 	}
 
 	blockInfo := bytes.Join(temp, []byte{})
@@ -59,11 +58,11 @@ func (pow *ProofOfWork) Run() (uint64, []byte) {
 
 	fmt.Printf("开始挖矿...\n")
 	for {
-		// 获取区块信息
-		blockInfo := GetBlockInfo(pow.block, nonce)
+		// 获取区块头信息
+		blockHeadInfo := GetBlockHeadInfo(pow.blockHead, nonce)
 
 		// 进行Hash运算
-		hash = sha256.Sum256(blockInfo)
+		hash = sha256.Sum256(blockHeadInfo)
 
 		// 将Hash数组转换成big.Int
 		hashInt := big.Int{}

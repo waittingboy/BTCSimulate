@@ -2,42 +2,70 @@ package blockchain
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/gob"
 	"log"
 	"time"
 )
 
-// 定义区块结构
-type Block struct {
+// 定义区块头结构
+type BlockHead struct {
 	Version    uint64 // 版本号
 	PrevHash   []byte // 前区块Hash
 	MerkelRoot []byte // 梅克尔根
 	TimeStamp  uint64 // 时间戳
 	Difficulty uint64 // 难度值
 	Nonce      uint64 // 随机数
-	CurHash    []byte // 当前区块Hash
-	Data       []byte // 区块数据
+}
+
+// 定义区块结构
+type Block struct {
+	BlockHead    *BlockHead     // 当前区块头
+	CurHash      []byte         // 当前区块Hash
+	Transactions []*Transaction // 区块交易数组
+}
+
+// 模拟梅克尔根：只是对交易数据做简单的拼接，不做二叉树处理
+func (block *Block) SetMerkelRoot() {
+	var info []byte
+
+	// 遍历区块交易
+	for _, transaction := range block.Transactions {
+		// 拼接交易ID
+		info = append(info, transaction.TXId...)
+	}
+
+	// 进行Hash运算
+	hash := sha256.Sum256(info)
+
+	block.BlockHead.MerkelRoot = hash[:]
 }
 
 // 创建区块
-func NewBlock(data string, prevHash []byte) *Block {
-	block := Block{
+func NewBlock(transactions []*Transaction, prevHash []byte) *Block {
+	blockHead := BlockHead{
 		Version:    00,
 		PrevHash:   prevHash,
 		MerkelRoot: []byte{},
 		TimeStamp:  uint64(time.Now().Unix()),
 		Difficulty: 0,
 		Nonce:      0,
-		CurHash:    []byte{},
-		Data:       []byte(data),
 	}
 
+	block := Block{
+		BlockHead:    &blockHead,
+		CurHash:      []byte{},
+		Transactions: transactions,
+	}
+
+	block.SetMerkelRoot()
+
 	// 创建工作量证明
-	pow := NewProofOfWork(&block)
+	pow := NewProofOfWork(&blockHead)
 	// 寻找随机数
 	nonce, curHash := pow.Run()
 	// 更新block数据
-	block.Nonce = nonce
+	block.BlockHead.Nonce = nonce
 	block.CurHash = curHash
 
 	return &block

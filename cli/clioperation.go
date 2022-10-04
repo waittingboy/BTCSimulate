@@ -2,59 +2,52 @@ package cli
 
 import (
 	"BTC_Simulate/blockchain"
+	"BTC_Simulate/utils"
 	"fmt"
-	"github.com/boltdb/bolt"
-	"log"
 )
 
-func (cli *CLI) AddBlock(data string) {
-	cli.blockchain.AddBlock(data)
-	fmt.Printf("添加区块成功！")
+func (cli *CLI) PrintBlockchain() {
+	iterator := cli.blockchain.NewIterator()
+	for {
+		block := iterator.Next()
+		fmt.Printf("========================================\n")
+		fmt.Printf("当前版本号：%d\n", block.BlockHead.Version)
+		fmt.Printf("前区块哈希值：%x\n", block.BlockHead.PrevHash)
+		fmt.Printf("梅克尔根：%x\n", block.BlockHead.MerkelRoot)
+		fmt.Printf("区块时间：%s\n", utils.TimeFormat(block.BlockHead.TimeStamp))
+		fmt.Printf("随机数：%d\n", block.BlockHead.Nonce)
+		fmt.Printf("当前区块哈希值：%x\n", block.CurHash)
+		for i, transaction := range block.Transactions {
+			fmt.Printf("当前区块第%d个交易的ID为：%x\n", i, transaction.TXId)
+		}
+		fmt.Printf("区块数据：%s\n", block.Transactions[0].TXInputs[0].Sig)
+
+		if len(block.BlockHead.PrevHash) == 0 {
+			break
+		}
+	}
 }
 
-func (cli *CLI) PrintBlockchain() {
-	// 打开数据库
-	db, err := bolt.Open(blockchain.BlockchainDB, 0600, nil)
-	if err != nil {
-		log.Panic("打开数据库失败！")
+func (cli *CLI) getBalance(user string) {
+	UTXOs := cli.blockchain.FindUTXOs(user)
+	balance := 0.0
+
+	for _, UTXO := range UTXOs {
+		balance += UTXO.Amount
 	}
-	defer db.Close()
 
-	// 查询数据库
-	err = db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(blockchain.BlockBucket))
-		if bucket == nil {
-			log.Panic("请先创建区块链！")
-		}
+	fmt.Printf("%s的余额为：%f\n", user, balance)
+}
 
-		lastHash := bucket.Get([]byte(blockchain.LastHashKey))
-		if len(lastHash) != 0 {
-			count := 0
-
-			for {
-				count++
-				value := bucket.Get(lastHash)
-				block := blockchain.Deserialize(value)
-				fmt.Printf("========================================\n")
-				fmt.Printf("当前版本号：%d\n", block.Version)
-				fmt.Printf("前区块哈希值：%x\n", block.PrevHash)
-				fmt.Printf("区块时间戳：%d\n", block.TimeStamp)
-				fmt.Printf("随机数：%d\n", block.Nonce)
-				fmt.Printf("当前区块哈希值：%x\n", block.CurHash)
-				fmt.Printf("区块数据：%s\n", block.Data)
-
-				if len(block.PrevHash) == 0 {
-					break
-				}
-
-				lastHash = block.PrevHash
-			}
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		log.Panic("查询数据库失败！")
+func (cli *CLI) transfer(from, to string, amount float64, miner, data string) {
+	// 创建挖矿交易
+	coinbase := blockchain.NewCoinbase(miner, data)
+	// 创建普通交易
+	transaction := blockchain.NewTransactionForSingle(from, to, amount, cli.blockchain)
+	if transaction == nil {
+		fmt.Printf("转账失败！\n")
+		return
 	}
+	// 将交易添加到区块中
+	cli.blockchain.AddBlock([]*blockchain.Transaction{coinbase, transaction})
 }
