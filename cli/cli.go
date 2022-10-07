@@ -12,6 +12,8 @@ type CLI struct {
 }
 
 const Usage = `
+	newWallet                             "new a wallet"
+	listAddresses                         "list all addresses"
 	printBlockchain                       "print all blockchain data"
 	getBalance --address USER             "get user balance"
 	transfer FROM TO AMOUNT MINER DATA    "transfer"
@@ -32,7 +34,28 @@ func (cli *CLI) Run() {
 	// 分析命令
 	arg := args[1]
 	switch arg {
+	case "newWallet":
+		fmt.Printf("新建钱包...\n")
+		if len(args) == 2 {
+			cli.NewWallet()
+		} else {
+			fmt.Printf("newWallet参数错误，请重新输入！\n")
+			fmt.Printf(Usage)
+		}
+		break
+
+	case "listAddresses":
+		fmt.Printf("列出钱包地址...\n")
+		if len(args) == 2 {
+			cli.ListAddresses()
+		} else {
+			fmt.Printf("listAddresses参数错误，请重新输入！\n")
+			fmt.Printf(Usage)
+		}
+		break
+
 	case "printBlockchain":
+		fmt.Printf("打印区块链...\n")
 		if len(args) == 2 {
 			cli.PrintBlockchain()
 		} else {
@@ -42,6 +65,7 @@ func (cli *CLI) Run() {
 		break
 
 	case "getBalance":
+		fmt.Printf("读取余额...\n")
 		if len(args) == 4 && args[2] == "--address" {
 			user := args[3]
 			cli.getBalance(user)

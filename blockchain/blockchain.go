@@ -2,6 +2,9 @@ package blockchain
 
 import (
 	"BTC_Simulate/utils"
+	"BTC_Simulate/wallet"
+	"bytes"
+	"fmt"
 	"github.com/boltdb/bolt"
 	"log"
 )
@@ -24,6 +27,11 @@ func GenesisBlock(miner string) *Block {
 
 // 创建区块链
 func NewBlockchain(miner string) *Blockchain {
+	if !wallet.IsValidAddress(miner) {
+		fmt.Printf("miner地址无效，请重新输入！\n")
+		return nil
+	}
+
 	// 打开数据库
 	db, err := bolt.Open(blockchainDB, 0600, nil)
 	if err != nil {
@@ -100,7 +108,7 @@ func (blockchain *Blockchain) FindUTXOTransaction(user string) []*Transaction {
 			// 遍历outputs：必须先遍历outputs再遍历inputs，最后一个区块的所有outputs都是UTXO
 			for i, output := range transaction.TXOutputs {
 				// 将包含用户UTXO的交易加入transactions
-				if output.PubKeyHash == user {
+				if bytes.Equal(output.PublicKeyHash, GetPublicKeyHash(user)) {
 					if !utils.Contains(i, spentIndexes) {
 						transactions = append(transactions, transaction)
 					}
@@ -110,7 +118,7 @@ func (blockchain *Blockchain) FindUTXOTransaction(user string) []*Transaction {
 			// 遍历输入：不遍历Coinbase交易的输入
 			if !transaction.IsCoinbase() {
 				for _, input := range transaction.TXInputs {
-					if input.Sig == user {
+					if bytes.Equal(wallet.GetPublicKeyHash(input.PublicKey), GetPublicKeyHash(user)) {
 						spentOutputs[string(input.TXId)] = append(spentOutputs[string(input.TXId)], input.Index)
 					}
 				}
@@ -137,7 +145,7 @@ func (blockchain *Blockchain) FindUTXOs(user string) []TXOutput {
 	for _, transaction := range transactions {
 		// 遍历outputs，将用户的UTXO加入UTXOs
 		for _, output := range transaction.TXOutputs {
-			if output.PubKeyHash == user {
+			if bytes.Equal(output.PublicKeyHash, GetPublicKeyHash(user)) {
 				UTXOs = append(UTXOs, output)
 			}
 		}
@@ -161,7 +169,7 @@ func (blockchain *Blockchain) FindNeedUTXOs(user string, amount float64) (map[st
 	for _, transaction := range transactions {
 		// 遍历outputs，将用户所需的UTXO加入UTXOs
 		for i, output := range transaction.TXOutputs {
-			if output.PubKeyHash == user {
+			if bytes.Equal(output.PublicKeyHash, GetPublicKeyHash(user)) {
 				UTXOs[string(transaction.TXId)] = append(UTXOs[string(transaction.TXId)], i)
 				totalAmount += output.Amount
 				if totalAmount >= amount {

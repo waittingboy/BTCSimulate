@@ -1,10 +1,12 @@
 package blockchain
 
 import (
+	"BTC_Simulate/wallet"
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
 	"fmt"
+	"github.com/btcsuite/btcd/btcutil/base58"
 	"log"
 )
 
@@ -15,24 +17,47 @@ type Transaction struct {
 }
 
 type TXInput struct {
-	TXId  []byte // 引用的交易ID
-	Index int    // 引用output在交易中的索引值
-	Sig   string // 解锁脚本：使用地址模拟
+	TXId      []byte // 引用的交易ID
+	Index     int    // 引用output在交易中的索引值
+	Signature []byte // 数字签名
+	PublicKey []byte // 公钥
 }
 
 type TXOutput struct {
-	Amount     float64 // 转账金额
-	PubKeyHash string  // 锁定脚本：使用地址模拟
+	Amount        float64 // 转账金额
+	PublicKeyHash []byte  // 公钥Hash
 }
 
 const reward = 6.25
+
+// 创建TXOutput
+func NewTXOutput(amount float64, address string) *TXOutput {
+	output := TXOutput{
+		Amount: amount,
+	}
+
+	output.PublicKeyHash = GetPublicKeyHash(address)
+
+	return &output
+}
+
+// 计算公钥Hash
+func GetPublicKeyHash(address string) []byte {
+	// 解码
+	addressByte := base58.Decode(address)
+
+	// 计算公钥Hash
+	publicKeyHash := addressByte[1 : len(addressByte)-4]
+
+	return publicKeyHash
+}
 
 // 设置交易ID
 func (transaction *Transaction) SetTXId() {
 	var buffer bytes.Buffer
 
-	encode := gob.NewEncoder(&buffer)
-	err := encode.Encode(transaction)
+	encoder := gob.NewEncoder(&buffer)
+	err := encoder.Encode(transaction)
 	if err != nil {
 		log.Panic("SetTXId：编码失败")
 	}
@@ -55,19 +80,29 @@ func (transaction *Transaction) IsCoinbase() bool {
 
 // 创建挖矿交易：只有一个Input和一个Output
 func NewCoinbase(miner string, data string) *Transaction {
-	// 构建Input：矿工挖矿时无需指定签名，所以sig字段可以随意填写
-	input := TXInput{[]byte{}, -1, data}
+	// 构建Input：矿工挖矿时无需指定公钥，所以PublicKey字段可以随意填写
+	input := TXInput{[]byte{}, -1, nil, []byte(data)}
 	// 构建Output
-	output := TXOutput{reward, miner}
+	output := NewTXOutput(reward, miner)
 
-	transaction := Transaction{[]byte{}, []TXInput{input}, []TXOutput{output}}
+	transaction := Transaction{[]byte{}, []TXInput{input}, []TXOutput{*output}}
 	transaction.SetTXId()
 
 	return &transaction
 }
 
 // 创建普通交易
-func NewTransactionForSingle(from, to string, amount float64, blockchain *Blockchain) *Transaction {
+func NewTransaction(from, to string, amount float64, blockchain *Blockchain) *Transaction {
+	wallets := wallet.NewWallets()
+	fromWallet := wallets.WalletsMap[from]
+	if fromWallet == nil {
+		fmt.Printf("from地址不存在！\n")
+		return nil
+	}
+
+	//privateKey := fromWallet.PrivateKey
+	publicKey := fromWallet.PublicKey
+
 	UTXOs, totalAmount := blockchain.FindNeedUTXOs(from, amount)
 	if totalAmount < amount {
 		fmt.Printf("余额不足！\n")
@@ -80,18 +115,18 @@ func NewTransactionForSingle(from, to string, amount float64, blockchain *Blockc
 	// 构建Input
 	for id, indexes := range UTXOs {
 		for _, index := range indexes {
-			input := TXInput{[]byte(id), index, from}
+			input := TXInput{[]byte(id), index, nil, append(publicKey.X.Bytes(), publicKey.Y.Bytes()...)}
 			inputs = append(inputs, input)
 		}
 	}
 
 	// 构建Output
-	output := TXOutput{amount, to}
-	outputs = append(outputs, output)
+	output := NewTXOutput(amount, to)
+	outputs = append(outputs, *output)
 
 	if totalAmount > amount {
-		output := TXOutput{totalAmount - amount, from}
-		outputs = append(outputs, output)
+		output = NewTXOutput(totalAmount-amount, from)
+		outputs = append(outputs, *output)
 	}
 
 	transaction := Transaction{[]byte{}, inputs, outputs}

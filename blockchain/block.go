@@ -76,9 +76,9 @@ func (block *Block) Serialize() []byte {
 	var buffer bytes.Buffer
 
 	// 定义编码器
-	encode := gob.NewEncoder(&buffer)
+	encoder := gob.NewEncoder(&buffer)
 	// 使用编码器进行编码
-	err := encode.Encode(&block)
+	err := encoder.Encode(&block)
 	if err != nil {
 		log.Panic("区块编码失败！")
 	}
@@ -91,9 +91,9 @@ func Deserialize(data []byte) *Block {
 	var block *Block
 
 	// 定义解码器
-	decode := gob.NewDecoder(bytes.NewReader(data))
+	decoder := gob.NewDecoder(bytes.NewReader(data))
 	// 使用解码器进行解码
-	err := decode.Decode(&block)
+	err := decoder.Decode(&block)
 	if err != nil {
 		log.Panic("区块解码失败！")
 	}

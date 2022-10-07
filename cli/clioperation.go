@@ -3,8 +3,23 @@ package cli
 import (
 	"BTC_Simulate/blockchain"
 	"BTC_Simulate/utils"
+	"BTC_Simulate/wallet"
 	"fmt"
 )
+
+func (cli *CLI) NewWallet() {
+	wallets := wallet.NewWallets()
+	address := wallets.AddWallet()
+	fmt.Printf("地址：%s\n", address)
+}
+
+func (cli *CLI) ListAddresses() {
+	wallets := wallet.NewWallets()
+	addresses := wallets.ListAllAddresses()
+	for _, address := range addresses {
+		fmt.Printf("地址：%s\n", address)
+	}
+}
 
 func (cli *CLI) PrintBlockchain() {
 	iterator := cli.blockchain.NewIterator()
@@ -20,7 +35,7 @@ func (cli *CLI) PrintBlockchain() {
 		for i, transaction := range block.Transactions {
 			fmt.Printf("当前区块第%d个交易的ID为：%x\n", i, transaction.TXId)
 		}
-		fmt.Printf("区块数据：%s\n", block.Transactions[0].TXInputs[0].Sig)
+		fmt.Printf("区块数据：%s\n", block.Transactions[0].TXInputs[0].PublicKey)
 
 		if len(block.BlockHead.PrevHash) == 0 {
 			break
@@ -29,6 +44,11 @@ func (cli *CLI) PrintBlockchain() {
 }
 
 func (cli *CLI) getBalance(user string) {
+	if !wallet.IsValidAddress(user) {
+		fmt.Printf("地址无效，请重新输入！\n")
+		return
+	}
+
 	UTXOs := cli.blockchain.FindUTXOs(user)
 	balance := 0.0
 
@@ -36,16 +56,30 @@ func (cli *CLI) getBalance(user string) {
 		balance += UTXO.Amount
 	}
 
-	fmt.Printf("%s的余额为：%f\n", user, balance)
+	fmt.Printf("地址%s的余额为：%f\n", user, balance)
 }
 
 func (cli *CLI) transfer(from, to string, amount float64, miner, data string) {
+	if !wallet.IsValidAddress(from) {
+		fmt.Printf("from地址无效，请重新输入！\n")
+		return
+	}
+
+	if !wallet.IsValidAddress(to) {
+		fmt.Printf("to地址无效，请重新输入！\n")
+		return
+	}
+
+	if !wallet.IsValidAddress(miner) {
+		fmt.Printf("miner地址无效，请重新输入！\n")
+		return
+	}
+
 	// 创建挖矿交易
 	coinbase := blockchain.NewCoinbase(miner, data)
 	// 创建普通交易
-	transaction := blockchain.NewTransactionForSingle(from, to, amount, cli.blockchain)
+	transaction := blockchain.NewTransaction(from, to, amount, cli.blockchain)
 	if transaction == nil {
-		fmt.Printf("转账失败！\n")
 		return
 	}
 	// 将交易添加到区块中
