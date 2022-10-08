@@ -1,13 +1,16 @@
 package blockchain
 
 import (
+	"BTC_Simulate/utils"
 	"BTC_Simulate/wallet"
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/gob"
 	"fmt"
-	"github.com/btcsuite/btcd/btcutil/base58"
 	"log"
+	"strings"
 )
 
 type Transaction struct {
@@ -36,20 +39,9 @@ func NewTXOutput(amount float64, address string) *TXOutput {
 		Amount: amount,
 	}
 
-	output.PublicKeyHash = GetPublicKeyHash(address)
+	output.PublicKeyHash = utils.GetPublicKeyHash(address)
 
 	return &output
-}
-
-// 计算公钥Hash
-func GetPublicKeyHash(address string) []byte {
-	// 解码
-	addressByte := base58.Decode(address)
-
-	// 计算公钥Hash
-	publicKeyHash := addressByte[1 : len(addressByte)-4]
-
-	return publicKeyHash
 }
 
 // 设置交易ID
@@ -132,5 +124,101 @@ func NewTransaction(from, to string, amount float64, blockchain *Blockchain) *Tr
 	transaction := Transaction{[]byte{}, inputs, outputs}
 	transaction.SetTXId()
 
+	quotedTransactions := blockchain.FindQuotedTransactions(&transaction)
+	transaction.Sign(wallets.WalletsMap[from].PrivateKey, quotedTransactions)
+
 	return &transaction
+}
+
+// 交易签名
+func (transaction *Transaction) Sign(privateKey *ecdsa.PrivateKey, quotedTransactions map[string]*Transaction) {
+	if transaction.IsCoinbase() {
+		return
+	}
+
+	transactionCopy := transaction.TrimmedCopy()
+
+	for i, input := range transactionCopy.TXInputs {
+		// 设置交易源数据Hash
+		transactionCopy.SetDataHash(quotedTransactions, i, &input)
+
+		// 进行数字签名
+		r, s, err := ecdsa.Sign(rand.Reader, privateKey, transactionCopy.TXId)
+		if err != nil {
+			log.Panic("交易签名失败！")
+		}
+
+		// 将数字签名赋值给transaction对应input的Signature
+		transaction.TXInputs[i].Signature = append(r.Bytes(), s.Bytes()...)
+	}
+}
+
+// 交易验证
+func (transaction *Transaction) Verify(quotedTransactions map[string]*Transaction) bool {
+	transactionCopy := transaction.TrimmedCopy()
+
+	for i, input := range transactionCopy.TXInputs {
+		// 设置交易源数据Hash
+		transactionCopy.SetDataHash(quotedTransactions, i, &input)
+
+		publicKey := utils.GetPublicKey(transaction.TXInputs[i].PublicKey)
+		dataHash := transactionCopy.TXId
+		r, s := utils.GetRS(transaction.TXInputs[i].Signature)
+
+		if !ecdsa.Verify(publicKey, dataHash, r, s) {
+			fmt.Printf("交易验证失败！\n")
+			return false
+		}
+	}
+
+	return true
+}
+
+// 拷贝修剪的交易
+func (transaction *Transaction) TrimmedCopy() *Transaction {
+	var inputs []TXInput
+
+	for _, input := range transaction.TXInputs {
+		trimmedInput := TXInput{input.TXId, input.Index, []byte{}, []byte{}}
+		inputs = append(inputs, trimmedInput)
+	}
+
+	transactionCopy := Transaction{transaction.TXId, inputs, transaction.TXOutputs}
+
+	return &transactionCopy
+}
+
+// 设置交易源数据Hash（可用于交易签名和交易验证）
+func (transaction *Transaction) SetDataHash(quotedTransactions map[string]*Transaction, i int, input *TXInput) {
+	// 获取input引用的output所属的交易
+	quotedTransaction := quotedTransactions[string(input.TXId)]
+	// 获取input引用的output的PublicKeyHash赋值给transactionCopy对应input的PublicKey
+	transaction.TXInputs[i].PublicKey = quotedTransaction.TXOutputs[input.Index].PublicKeyHash
+
+	// 进行Hash运算
+	transaction.SetTXId()
+
+	// 重置transactionCopy对应input的PublicKey
+	transaction.TXInputs[i].PublicKey = []byte{}
+}
+
+// 打印交易信息
+func (transaction *Transaction) ToString() string {
+	var lines []string
+
+	for i, input := range transaction.TXInputs {
+		lines = append(lines, fmt.Sprintf("  Input  %d", i))
+		lines = append(lines, fmt.Sprintf("    TXId           %x", input.TXId))
+		lines = append(lines, fmt.Sprintf("    Output index   %d", input.Index))
+		lines = append(lines, fmt.Sprintf("    Signature      %x", input.Signature))
+		lines = append(lines, fmt.Sprintf("    PublicKey      %x", input.PublicKey))
+	}
+
+	for i, output := range transaction.TXOutputs {
+		lines = append(lines, fmt.Sprintf("  Output  %d", i))
+		lines = append(lines, fmt.Sprintf("    Amount         %f", output.Amount))
+		lines = append(lines, fmt.Sprintf("    PublicKeyHash  %x", output.PublicKeyHash))
+	}
+
+	return strings.Join(lines, "\n")
 }

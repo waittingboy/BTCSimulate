@@ -33,9 +33,9 @@ func (cli *CLI) PrintBlockchain() {
 		fmt.Printf("随机数：%d\n", block.BlockHead.Nonce)
 		fmt.Printf("当前区块哈希值：%x\n", block.CurHash)
 		for i, transaction := range block.Transactions {
-			fmt.Printf("当前区块第%d个交易的ID为：%x\n", i, transaction.TXId)
+			fmt.Printf("当前区块第%d个交易的ID：%x\n", i, transaction.TXId)
+			fmt.Println(transaction.ToString())
 		}
-		fmt.Printf("区块数据：%s\n", block.Transactions[0].TXInputs[0].PublicKey)
 
 		if len(block.BlockHead.PrevHash) == 0 {
 			break

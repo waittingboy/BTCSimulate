@@ -70,6 +70,18 @@ func NewBlockchain(miner string) *Blockchain {
 
 // 添加区块
 func (blockchain *Blockchain) AddBlock(transactions []*Transaction) {
+	// 交易验证
+	for i, transaction := range transactions {
+		// 挖矿交易没有引用任何交易的output且无需验证
+		if transaction.IsCoinbase() {
+			break
+		}
+		quotedTransactions := blockchain.FindQuotedTransactions(transaction)
+		if !transaction.Verify(quotedTransactions) {
+			transactions = append(transactions[:i], transactions[i+1:]...)
+		}
+	}
+
 	// 写入数据库
 	err := blockchain.db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(blockBucket))
@@ -101,16 +113,17 @@ func (blockchain *Blockchain) FindUTXOTransaction(user string) []*Transaction {
 	iterator := blockchain.NewIterator()
 	for {
 		block := iterator.Next()
-		// 一个用户在一个交易中只会存在input或output中的一个，不会同时存在input和output
 		// 遍历区块交易：可筛选出所有包含当前用户UTXO的交易
 		for _, transaction := range block.Transactions {
 			spentIndexes := spentOutputs[string(transaction.TXId)]
 			// 遍历outputs：必须先遍历outputs再遍历inputs，最后一个区块的所有outputs都是UTXO
 			for i, output := range transaction.TXOutputs {
-				// 将包含用户UTXO的交易加入transactions
-				if bytes.Equal(output.PublicKeyHash, GetPublicKeyHash(user)) {
-					if !utils.Contains(i, spentIndexes) {
+				// 将包含当前用户UTXO的交易加入transactions
+				if bytes.Equal(output.PublicKeyHash, utils.GetPublicKeyHash(user)) {
+					// 遍历到一个当前用户的UTXO后就应退出当outputs的循环，避免多次添加相同的交易到transactions中
+					if !utils.IsContains(i, spentIndexes) {
 						transactions = append(transactions, transaction)
+						break
 					}
 				}
 			}
@@ -118,7 +131,7 @@ func (blockchain *Blockchain) FindUTXOTransaction(user string) []*Transaction {
 			// 遍历输入：不遍历Coinbase交易的输入
 			if !transaction.IsCoinbase() {
 				for _, input := range transaction.TXInputs {
-					if bytes.Equal(wallet.GetPublicKeyHash(input.PublicKey), GetPublicKeyHash(user)) {
+					if bytes.Equal(wallet.GetPublicKeyHash(input.PublicKey), utils.GetPublicKeyHash(user)) {
 						spentOutputs[string(input.TXId)] = append(spentOutputs[string(input.TXId)], input.Index)
 					}
 				}
@@ -145,7 +158,7 @@ func (blockchain *Blockchain) FindUTXOs(user string) []TXOutput {
 	for _, transaction := range transactions {
 		// 遍历outputs，将用户的UTXO加入UTXOs
 		for _, output := range transaction.TXOutputs {
-			if bytes.Equal(output.PublicKeyHash, GetPublicKeyHash(user)) {
+			if bytes.Equal(output.PublicKeyHash, utils.GetPublicKeyHash(user)) {
 				UTXOs = append(UTXOs, output)
 			}
 		}
@@ -169,7 +182,7 @@ func (blockchain *Blockchain) FindNeedUTXOs(user string, amount float64) (map[st
 	for _, transaction := range transactions {
 		// 遍历outputs，将用户所需的UTXO加入UTXOs
 		for i, output := range transaction.TXOutputs {
-			if bytes.Equal(output.PublicKeyHash, GetPublicKeyHash(user)) {
+			if bytes.Equal(output.PublicKeyHash, utils.GetPublicKeyHash(user)) {
 				UTXOs[string(transaction.TXId)] = append(UTXOs[string(transaction.TXId)], i)
 				totalAmount += output.Amount
 				if totalAmount >= amount {
@@ -180,4 +193,40 @@ func (blockchain *Blockchain) FindNeedUTXOs(user string, amount float64) (map[st
 	}
 
 	return UTXOs, totalAmount
+}
+
+// 查找需要签名的交易的inputs引用的交易集合
+func (blockchain *Blockchain) FindQuotedTransactions(needSigTransaction *Transaction) map[string]*Transaction {
+	var quotedTransactions = make(map[string]*Transaction)
+
+	for _, input := range needSigTransaction.TXInputs {
+		transaction := blockchain.FindTransactionByTXId(input.TXId)
+		if transaction == nil {
+			log.Panic("无效的交易ID！")
+		}
+		quotedTransactions[string(transaction.TXId)] = transaction
+	}
+
+	return quotedTransactions
+}
+
+// 通过TXId查找Transaction
+func (blockchain *Blockchain) FindTransactionByTXId(id []byte) *Transaction {
+	iterator := blockchain.NewIterator()
+
+	for {
+		block := iterator.Next()
+
+		for _, transaction := range block.Transactions {
+			if bytes.Equal(id, transaction.TXId) {
+				return transaction
+			}
+		}
+
+		if len(block.BlockHead.PrevHash) == 0 {
+			break
+		}
+	}
+
+	return nil
 }

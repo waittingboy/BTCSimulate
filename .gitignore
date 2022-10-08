@@ -3,6 +3,5 @@
 
 # production
 BTC_Simulate.exe
-wallet.dat
 blockchain.db
 blockchain.db.lock
