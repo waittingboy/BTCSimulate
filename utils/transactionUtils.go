@@ -10,21 +10,21 @@ import (
 // 计算公钥Hash
 func GetPublicKeyHash(address string) []byte {
 	// 解码
-	addressByte := base58.Decode(address)
+	addressBytes := base58.Decode(address)
 
 	// 计算公钥Hash
-	publicKeyHash := addressByte[1 : len(addressByte)-4]
+	publicKeyHash := addressBytes[1 : len(addressBytes)-4]
 
 	return publicKeyHash
 }
 
 // 通过publicKeyByte得到publicKey
-func GetPublicKey(publicKeyByte []byte) *ecdsa.PublicKey {
+func GetPublicKey(publicKeyBytes []byte) *ecdsa.PublicKey {
 	X := big.Int{}
 	Y := big.Int{}
 
-	X.SetBytes(publicKeyByte[:len(publicKeyByte)/2])
-	Y.SetBytes(publicKeyByte[len(publicKeyByte)/2:])
+	X.SetBytes(publicKeyBytes[:len(publicKeyBytes)/2])
+	Y.SetBytes(publicKeyBytes[len(publicKeyBytes)/2:])
 
 	curve := elliptic.P256()
 	publicKey := ecdsa.PublicKey{Curve: curve, X: &X, Y: &Y}

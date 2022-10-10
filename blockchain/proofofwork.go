@@ -38,12 +38,12 @@ func NewProofOfWork(blockHead *BlockHead) *ProofOfWork {
 func GetBlockHeadInfo(blockHead *BlockHead, nonce uint64) []byte {
 	// 拼接区块头数据
 	temp := [][]byte{
-		utils.Uint64ToByte(blockHead.Version),
+		utils.Uint64ToBytes(blockHead.Version),
 		blockHead.PrevHash,
 		blockHead.MerkelRoot,
-		utils.Uint64ToByte(blockHead.TimeStamp),
-		utils.Uint64ToByte(blockHead.Difficulty),
-		utils.Uint64ToByte(nonce),
+		utils.Uint64ToBytes(blockHead.TimeStamp),
+		utils.Uint64ToBytes(blockHead.Difficulty),
+		utils.Uint64ToBytes(nonce),
 	}
 
 	blockInfo := bytes.Join(temp, []byte{})

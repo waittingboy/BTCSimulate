@@ -6,7 +6,7 @@ import (
 	"log"
 )
 
-func Uint64ToByte(num uint64) []byte {
+func Uint64ToBytes(num uint64) []byte {
 	var buffer bytes.Buffer
 
 	err := binary.Write(&buffer, binary.BigEndian, num)

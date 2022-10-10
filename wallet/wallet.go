@@ -39,8 +39,8 @@ func NewWallet() *Wallet {
 func (wallet *Wallet) GenerateAddress() string {
 	// 获取公钥Hash
 	publicKey := wallet.PublicKey
-	publicKeyByte := append(publicKey.X.Bytes(), publicKey.Y.Bytes()...)
-	publicKeyHash := GetPublicKeyHash(publicKeyByte)
+	publicKeyBytes := append(publicKey.X.Bytes(), publicKey.Y.Bytes()...)
+	publicKeyHash := GetPublicKeyHash(publicKeyBytes)
 
 	// 拼接version与publicKeyHash
 	version := []byte{00}
@@ -50,10 +50,10 @@ func (wallet *Wallet) GenerateAddress() string {
 	checkSum := GetCheckSum(payload)
 
 	// 拼接payload与校验码
-	addressByte := append(payload, checkSum...)
+	addressBytes := append(payload, checkSum...)
 
 	// 进行Base58转换得到地址
-	address := base58.Encode(addressByte)
+	address := base58.Encode(addressBytes)
 
 	return address
 }
@@ -89,14 +89,14 @@ func GetCheckSum(data []byte) []byte {
 // 地址校验
 func IsValidAddress(address string) bool {
 	// 解码
-	addressByte := base58.Decode(address)
-	if len(addressByte) < 4 {
+	addressBytes := base58.Decode(address)
+	if len(addressBytes) < 4 {
 		return false
 	}
 
 	// 拆分数据
-	payload := addressByte[:len(addressByte)-4]
-	checkSum := addressByte[len(addressByte)-4:]
+	payload := addressBytes[:len(addressBytes)-4]
+	checkSum := addressBytes[len(addressBytes)-4:]
 
 	// 计算checkSum并比较
 	return bytes.Equal(GetCheckSum(payload), checkSum)
